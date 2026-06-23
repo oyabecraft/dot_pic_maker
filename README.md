@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ドット絵メーカー
 
-## Getting Started
+画像を2〜4色のドット絵に変換するWebアプリ。Tinkercad などでブロック配置の参考画像を作る用途を想定して設計されている。
 
-First, run the development server:
+## 機能
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **画像アップロード** — ドラッグ&ドロップまたはファイル選択
+- **トリミング** — 変換に使う範囲をモーダルで切り出し（react-image-crop）
+- **リアルタイムプレビュー** — パラメータ変更のたびに即時再描画
+- **PNG保存** — `pixel-art-YYYYMMDD-HHmm.png` 形式でダウンロード
+
+## 変換パラメータ
+
+| パラメータ | 範囲 | 説明 |
+|---|---|---|
+| 横ドット数 | 8〜128 | 変換後の横方向のドット数。少ないほど粗い |
+| しきい値 | 0〜255 | 2色モード時の白/黒の境界値 |
+| 明るさ | -100〜100 | 変換前のグレースケール輝度オフセット |
+| コントラスト | -100〜100 | 変換前のコントラスト倍率（線形スケーリング） |
+| 色数 | 2 / 3 / 4 | 出力に使う色の数 |
+| カラーパレット | — | 各色をカラーピッカーで個別指定、反転ボタンあり |
+| プリセット | — | 白黒・ゲームボーイ・青白・赤黒・クリーム茶 |
+| グリッド線 | on/off | ドット境界の補助線（色・透明度を調整可能） |
+| 出力サイズ | 256〜2048px | 保存するPNGの横幅（縦はアスペクト比維持） |
+
+## 変換ロジック
+
+`src/lib/dotConverter.ts` がすべての変換を担う。Canvas API のみで完結し、サーバー通信は行わない。
+
+1. ソース画像（またはトリミング範囲）を「横ドット数 × 縦ドット数」の小さなCanvasに縮小
+2. 各ピクセルをグレースケール化（輝度式: `0.299R + 0.587G + 0.114B`）
+3. 明るさ・コントラストを適用
+4. グレー値をパレットインデックスにマッピング
+   - 2色: しきい値で白/黒を判定
+   - 3〜4色: `256 / 色数` 幅で均等分割
+5. 出力サイズのCanvasに最近傍補間（`imageSmoothingEnabled = false`）で拡大
+6. グリッド線を有効時はドット境界に `strokeStyle` で上書き描画
+
+## ファイル構成
+
+```
+src/
+├── app/
+│   ├── page.tsx          # メインページ（状態管理・レイアウト）
+│   ├── layout.tsx        # HTMLルートレイアウト
+│   └── globals.css       # Tailwind v4 ベーススタイル
+├── components/
+│   ├── ImageUploader.tsx # ドラッグ&ドロップ付きアップロードUI
+│   ├── ImageCropper.tsx  # トリミングモーダル（react-image-crop）
+│   ├── ControlPanel.tsx  # 全パラメータのスライダー・ピッカーUI
+│   └── DotPreview.tsx    # 変換結果のCanvas表示
+└── lib/
+    └── dotConverter.ts   # 変換コア（ConvertOptions型 + convertToDotArt関数）
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 技術スタック
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Next.js 16** (App Router)
+- **React 19**
+- **TypeScript 5**
+- **Tailwind CSS v4**
+- **react-image-crop 11** — トリミングUI
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## セットアップ
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`http://localhost:3000` で起動。
