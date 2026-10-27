@@ -19,6 +19,7 @@ interface Props {
   onStlChange: (opts: StlOptions) => void;
   gridSize: { cols: number; rows: number } | null;
   onDownloadStl: () => void;
+  onDownload3mf: () => void;
   onDownloadColorStls: () => void;
   onReset: () => void;
   disabled: boolean;
@@ -66,7 +67,7 @@ function Slider({
 
 export default function ControlPanel({
   options, onChange, onDownload, onDownloadSvg,
-  stlOptions, onStlChange, gridSize, onDownloadStl, onDownloadColorStls,
+  stlOptions, onStlChange, gridSize, onDownloadStl, onDownload3mf, onDownloadColorStls,
   onReset, disabled,
 }: Props) {
   const set = <K extends keyof ConvertOptions>(key: K, value: ConvertOptions[K]) =>
@@ -328,17 +329,24 @@ export default function ControlPanel({
             STL（1つにまとめる）
           </button>
           <button
-            onClick={onDownloadColorStls}
+            onClick={onDownload3mf}
             disabled={disabled || (stlOptions.baseMm <= 0 && !hasColorBody)}
             className="flex-1 bg-purple-500 text-white py-2 rounded hover:bg-purple-600 disabled:opacity-50 font-medium transition-colors"
           >
-            色ごとのSTL（zip）
+            マルチカラー用（3MF）
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-1">
-          1つにまとめる = 高さの違いで模様を出す（単色印刷・Tinkercad向け）。
-          色ごと = 土台（base.stl）と各色を別ファイルにし、座標をそろえて出力。スライサーでまとめて読み込み、ファイルごとにフィラメントを割り当てるとマルチカラー印刷できます。
+          STL = 高さの違いで模様を出す（単色印刷・Tinkercad向け）。
+          3MF = 土台と各色を1つのオブジェクトのパーツとして保存。スライサーで開くと位置がそろった状態になるので、パーツごとにフィラメントを割り当てればマルチカラー印刷できます。
         </p>
+        <button
+          onClick={onDownloadColorStls}
+          disabled={disabled || (stlOptions.baseMm <= 0 && !hasColorBody)}
+          className="text-xs text-gray-500 underline mt-1 disabled:opacity-50"
+        >
+          色ごとのSTLをzipで保存（上級者向け: 1つのオブジェクトの複数パーツとして読み込まないと位置がずれます）
+        </button>
       </section>
 
       {/* ボタン */}

@@ -8,7 +8,7 @@ import {
   renderDotCanvas,
   gridToSvg,
 } from '@/lib/dotConverter';
-import { StlOptions, gridToReliefStl, gridToColorStls } from '@/lib/stlExport';
+import { StlOptions, gridToReliefStl, gridToColorStls, gridTo3mf } from '@/lib/stlExport';
 import { makeZip } from '@/lib/zip';
 import ImageUploader from '@/components/ImageUploader';
 import ImageCropper, { NaturalPixelCrop } from '@/components/ImageCropper';
@@ -116,6 +116,11 @@ export default function Home() {
     saveBlob(new Blob([stl], { type: 'model/stl' }), `pixel-art-${tsName()}.stl`);
   }, [dotGrid, stlOptions, tsName]);
 
+  const handleDownload3mf = useCallback(() => {
+    if (!dotGrid) return;
+    saveBlob(gridTo3mf(dotGrid, stlOptions), `pixel-art-${tsName()}.3mf`);
+  }, [dotGrid, stlOptions, tsName]);
+
   const handleDownloadColorStls = useCallback(() => {
     if (!dotGrid) return;
     const files = gridToColorStls(dotGrid, stlOptions);
@@ -193,6 +198,7 @@ export default function Home() {
               onStlChange={setStlOptions}
               gridSize={dotGrid ? { cols: dotGrid.cols, rows: dotGrid.rows } : null}
               onDownloadStl={handleDownloadStl}
+              onDownload3mf={handleDownload3mf}
               onDownloadColorStls={handleDownloadColorStls}
               onReset={() => { setOptions(DEFAULT_OPTIONS); setStlOptions(DEFAULT_STL); }}
               disabled={!dotCanvas}
