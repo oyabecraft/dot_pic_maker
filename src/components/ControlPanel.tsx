@@ -13,6 +13,7 @@ interface Props {
   options: ConvertOptions;
   onChange: (opts: ConvertOptions) => void;
   onDownload: () => void;
+  onDownloadSvg: () => void;
   onReset: () => void;
   disabled: boolean;
 }
@@ -39,7 +40,7 @@ function Slider({
   );
 }
 
-export default function ControlPanel({ options, onChange, onDownload, onReset, disabled }: Props) {
+export default function ControlPanel({ options, onChange, onDownload, onDownloadSvg, onReset, disabled }: Props) {
   const set = <K extends keyof ConvertOptions>(key: K, value: ConvertOptions[K]) =>
     onChange({ ...options, [key]: value });
 
@@ -220,20 +221,32 @@ export default function ControlPanel({ options, onChange, onDownload, onReset, d
       </section>
 
       {/* ボタン */}
-      <div className="flex gap-3 pt-2 border-t">
-        <button
-          onClick={onDownload}
-          disabled={disabled}
-          className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50 font-medium transition-colors"
-        >
-          PNGで保存
-        </button>
-        <button
-          onClick={onReset}
-          className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          設定をリセット
-        </button>
+      <div className="space-y-2 pt-2 border-t">
+        <div className="flex gap-3">
+          <button
+            onClick={onDownload}
+            disabled={disabled}
+            className="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50 font-medium transition-colors"
+          >
+            PNGで保存
+          </button>
+          <button
+            onClick={onDownloadSvg}
+            disabled={disabled}
+            className="flex-1 bg-emerald-500 text-white py-2 rounded hover:bg-emerald-600 disabled:opacity-50 font-medium transition-colors"
+          >
+            SVGで保存
+          </button>
+          <button
+            onClick={onReset}
+            className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            設定をリセット
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">
+          PNG = グリッド線つきで印刷用ワークシートに。SVG = グリッドなしの図形データで、Tinkercad等に取り込んで押し出し（立体化）できます。
+        </p>
       </div>
     </div>
   );

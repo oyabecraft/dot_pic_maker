@@ -1,6 +1,12 @@
 'use client';
-import { useState, useCallback, useEffect } from 'react';
-import { ConvertOptions, convertToDotArt } from '@/lib/dotConverter';
+import { useState, useCallback, useMemo } from 'react';
+import {
+  ConvertOptions,
+  DotGrid,
+  buildDotGrid,
+  renderDotCanvas,
+  gridToSvg,
+} from '@/lib/dotConverter';
 import ImageUploader from '@/components/ImageUploader';
 import ImageCropper, { NaturalPixelCrop } from '@/components/ImageCropper';
 import ControlPanel from '@/components/ControlPanel';
@@ -25,19 +31,19 @@ export default function Home() {
   const [crop, setCrop] = useState<NaturalPixelCrop | null>(null);
   const [showCropper, setShowCropper] = useState(false);
   const [options, setOptions] = useState<ConvertOptions>(DEFAULT_OPTIONS);
-  const [dotCanvas, setDotCanvas] = useState<HTMLCanvasElement | null>(null);
 
   const handleFile = useCallback((src: string) => {
     setImageSrc(src);
     setCrop(null);
-    setDotCanvas(null);
+    setImageEl(null);
     const img = new Image();
     img.onload = () => setImageEl(img);
     img.src = src;
   }, []);
 
-  useEffect(() => {
-    if (!imageEl) return;
+  // 画像・トリミング・設定から派生する中間データ（setStateを介さず再計算）。
+  const dotGrid = useMemo<DotGrid | null>(() => {
+    if (!imageEl) return null;
     const srcCanvas = document.createElement('canvas');
     srcCanvas.width = imageEl.naturalWidth;
     srcCanvas.height = imageEl.naturalHeight;
@@ -49,15 +55,17 @@ export default function Home() {
     const sw = crop?.width ?? imageEl.naturalWidth;
     const sh = crop?.height ?? imageEl.naturalHeight;
 
-    setDotCanvas(convertToDotArt(srcCanvas, sx, sy, sw, sh, options));
+    return buildDotGrid(srcCanvas, sx, sy, sw, sh, options);
   }, [imageEl, crop, options]);
 
-  const handleDownload = useCallback(() => {
-    if (!dotCanvas) return;
-    const url = dotCanvas.toDataURL('image/png');
-    const a = document.createElement('a');
+  const dotCanvas = useMemo<HTMLCanvasElement | null>(
+    () => (dotGrid ? renderDotCanvas(dotGrid, options) : null),
+    [dotGrid, options],
+  );
+
+  const tsName = useCallback(() => {
     const now = new Date();
-    const ts = [
+    return [
       now.getFullYear(),
       String(now.getMonth() + 1).padStart(2, '0'),
       String(now.getDate()).padStart(2, '0'),
@@ -65,10 +73,28 @@ export default function Home() {
       String(now.getHours()).padStart(2, '0'),
       String(now.getMinutes()).padStart(2, '0'),
     ].join('');
-    a.href = url;
-    a.download = `pixel-art-${ts}.png`;
+  }, []);
+
+  const handleDownload = useCallback(() => {
+    if (!dotCanvas) return;
+    const a = document.createElement('a');
+    a.href = dotCanvas.toDataURL('image/png');
+    a.download = `pixel-art-${tsName()}.png`;
     a.click();
-  }, [dotCanvas]);
+  }, [dotCanvas, tsName]);
+
+  const handleDownloadSvg = useCallback(() => {
+    if (!dotGrid) return;
+    // グリッド線なしのジオメトリ。Tinkercad等で押し出し可能。
+    const svg = gridToSvg(dotGrid, { dotSize: 10 });
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pixel-art-${tsName()}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [dotGrid, tsName]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -110,7 +136,6 @@ export default function Home() {
                         setImageSrc(null);
                         setImageEl(null);
                         setCrop(null);
-                        setDotCanvas(null);
                       }}
                       className="text-xs px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                     >
@@ -136,6 +161,7 @@ export default function Home() {
               options={options}
               onChange={setOptions}
               onDownload={handleDownload}
+              onDownloadSvg={handleDownloadSvg}
               onReset={() => setOptions(DEFAULT_OPTIONS)}
               disabled={!dotCanvas}
             />

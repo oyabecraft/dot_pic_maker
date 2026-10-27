@@ -1,15 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 
 interface Props { dotCanvas: HTMLCanvasElement | null }
 
 export default function DotPreview({ dotCanvas }: Props) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!dotCanvas) { setPreviewUrl(null); return; }
-    setPreviewUrl(dotCanvas.toDataURL('image/png'));
-  }, [dotCanvas]);
+  const previewUrl = useMemo(
+    () => (dotCanvas ? dotCanvas.toDataURL('image/png') : null),
+    [dotCanvas],
+  );
 
   return (
     <div className="bg-white rounded-lg p-3 shadow-sm">
