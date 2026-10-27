@@ -1,5 +1,6 @@
 'use client';
 import { ConvertOptions } from '@/lib/dotConverter';
+import { StlOptions } from '@/lib/stlExport';
 
 const PRESETS: { name: string; colors: string[] }[] = [
   { name: '白黒', colors: ['#FFFFFF', '#888888', '#444444', '#000000'] },
@@ -14,8 +15,31 @@ interface Props {
   onChange: (opts: ConvertOptions) => void;
   onDownload: () => void;
   onDownloadSvg: () => void;
+  stlOptions: StlOptions;
+  onStlChange: (opts: StlOptions) => void;
+  gridSize: { cols: number; rows: number } | null;
+  onDownloadStl: () => void;
+  onDownloadColorStls: () => void;
   onReset: () => void;
   disabled: boolean;
+}
+
+function MmInput({
+  label, value, min = 0, step = 0.5, onChange,
+}: {
+  label: string; value: number; min?: number; step?: number; onChange: (v: number) => void;
+}) {
+  return (
+    <input
+      type="number" min={min} step={step} value={value}
+      onChange={(e) => {
+        const v = Number(e.target.value);
+        if (Number.isFinite(v) && v >= min) onChange(v);
+      }}
+      className="w-20 border rounded px-2 py-1 text-sm text-right"
+      aria-label={label}
+    />
+  );
 }
 
 function Slider({
@@ -40,7 +64,11 @@ function Slider({
   );
 }
 
-export default function ControlPanel({ options, onChange, onDownload, onDownloadSvg, onReset, disabled }: Props) {
+export default function ControlPanel({
+  options, onChange, onDownload, onDownloadSvg,
+  stlOptions, onStlChange, gridSize, onDownloadStl, onDownloadColorStls,
+  onReset, disabled,
+}: Props) {
   const set = <K extends keyof ConvertOptions>(key: K, value: ConvertOptions[K]) =>
     onChange({ ...options, [key]: value });
 
@@ -60,6 +88,19 @@ export default function ControlPanel({ options, onChange, onDownload, onDownload
   };
 
   const COLOR_LABELS = ['明色', '中間1', '中間2', '暗色'];
+
+  const setStl = <K extends keyof StlOptions>(key: K, value: StlOptions[K]) =>
+    onStlChange({ ...stlOptions, [key]: value });
+
+  const setHeight = (i: number, v: number) => {
+    const h = [...stlOptions.heights];
+    h[i] = v;
+    onStlChange({ ...stlOptions, heights: h });
+  };
+
+  const usedHeights = stlOptions.heights.slice(0, options.colorCount);
+  const maxHeight = Math.max(0, ...usedHeights);
+  const hasColorBody = usedHeights.some((h) => h > 0);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 space-y-5">
@@ -218,6 +259,67 @@ export default function ControlPanel({ options, onChange, onDownload, onDownload
             <option value={2048}>2048px</option>
           </select>
         </div>
+      </section>
+
+      {/* 3D出力 */}
+      <section>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">3D出力（STL）</h3>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-600 w-36 flex-shrink-0">1ドットの大きさ</label>
+            <MmInput label="1ドットの大きさ" value={stlOptions.dotMm} min={0.1}
+              onChange={(v) => setStl('dotMm', v)} />
+            <span className="text-sm text-gray-500">mm</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-600 w-36 flex-shrink-0">土台の厚み</label>
+            <MmInput label="土台の厚み" value={stlOptions.baseMm}
+              onChange={(v) => setStl('baseMm', v)} />
+            <span className="text-sm text-gray-500">mm（0で土台なし）</span>
+          </div>
+          <div className="flex items-start gap-3">
+            <label className="text-sm text-gray-600 w-36 flex-shrink-0 pt-1">色ごとの高さ</label>
+            <div className="flex gap-3 flex-wrap">
+              {Array.from({ length: options.colorCount }).map((_, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <span
+                    className="w-5 h-5 rounded border border-gray-300 flex-shrink-0"
+                    style={{ backgroundColor: options.colors[i] }}
+                  />
+                  <MmInput label={`${COLOR_LABELS[i]}の高さ`} value={stlOptions.heights[i] ?? 0}
+                    onChange={(v) => setHeight(i, v)} />
+                  <span className="text-sm text-gray-500">mm</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {gridSize && (
+            <p className="text-xs text-gray-400 ml-36">
+              仕上がり: {+(gridSize.cols * stlOptions.dotMm).toFixed(1)} × {+(gridSize.rows * stlOptions.dotMm).toFixed(1)} mm、
+              最大の高さ {+(stlOptions.baseMm + maxHeight).toFixed(1)} mm
+            </p>
+          )}
+        </div>
+        <div className="flex gap-3 mt-3">
+          <button
+            onClick={onDownloadStl}
+            disabled={disabled || stlOptions.baseMm + maxHeight <= 0}
+            className="flex-1 bg-orange-500 text-white py-2 rounded hover:bg-orange-600 disabled:opacity-50 font-medium transition-colors"
+          >
+            STL（1つにまとめる）
+          </button>
+          <button
+            onClick={onDownloadColorStls}
+            disabled={disabled || (stlOptions.baseMm <= 0 && !hasColorBody)}
+            className="flex-1 bg-purple-500 text-white py-2 rounded hover:bg-purple-600 disabled:opacity-50 font-medium transition-colors"
+          >
+            色ごとのSTL（zip）
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">
+          1つにまとめる = 高さの違いで模様を出す（単色印刷・Tinkercad向け）。
+          色ごと = 土台（base.stl）と各色を別ファイルにし、座標をそろえて出力。スライサーでまとめて読み込み、ファイルごとにフィラメントを割り当てるとマルチカラー印刷できます。
+        </p>
       </section>
 
       {/* ボタン */}

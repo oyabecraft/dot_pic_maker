@@ -7,6 +7,8 @@ import {
   renderDotCanvas,
   gridToSvg,
 } from '@/lib/dotConverter';
+import { StlOptions, gridToReliefStl, gridToColorStls } from '@/lib/stlExport';
+import { makeZip } from '@/lib/zip';
 import ImageUploader from '@/components/ImageUploader';
 import ImageCropper, { NaturalPixelCrop } from '@/components/ImageCropper';
 import ControlPanel from '@/components/ControlPanel';
@@ -25,12 +27,29 @@ const DEFAULT_OPTIONS: ConvertOptions = {
   outputSize: 512,
 };
 
+// 暗い色ほど高くする（明色は土台だけ）。
+const DEFAULT_STL: StlOptions = {
+  dotMm: 2,
+  baseMm: 1,
+  heights: [0, 1, 2, 3],
+};
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Home() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState<NaturalPixelCrop | null>(null);
   const [showCropper, setShowCropper] = useState(false);
   const [options, setOptions] = useState<ConvertOptions>(DEFAULT_OPTIONS);
+  const [stlOptions, setStlOptions] = useState<StlOptions>(DEFAULT_STL);
 
   const handleFile = useCallback((src: string) => {
     setImageSrc(src);
@@ -87,14 +106,21 @@ export default function Home() {
     if (!dotGrid) return;
     // グリッド線なしのジオメトリ。Tinkercad等で押し出し可能。
     const svg = gridToSvg(dotGrid, { dotSize: 10 });
-    const blob = new Blob([svg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pixel-art-${tsName()}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(new Blob([svg], { type: 'image/svg+xml' }), `pixel-art-${tsName()}.svg`);
   }, [dotGrid, tsName]);
+
+  const handleDownloadStl = useCallback(() => {
+    if (!dotGrid) return;
+    const stl = gridToReliefStl(dotGrid, stlOptions);
+    saveBlob(new Blob([stl], { type: 'model/stl' }), `pixel-art-${tsName()}.stl`);
+  }, [dotGrid, stlOptions, tsName]);
+
+  const handleDownloadColorStls = useCallback(() => {
+    if (!dotGrid) return;
+    const files = gridToColorStls(dotGrid, stlOptions);
+    if (files.length === 0) return;
+    saveBlob(makeZip(files), `pixel-art-${tsName()}-colors.zip`);
+  }, [dotGrid, stlOptions, tsName]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -162,7 +188,12 @@ export default function Home() {
               onChange={setOptions}
               onDownload={handleDownload}
               onDownloadSvg={handleDownloadSvg}
-              onReset={() => setOptions(DEFAULT_OPTIONS)}
+              stlOptions={stlOptions}
+              onStlChange={setStlOptions}
+              gridSize={dotGrid ? { cols: dotGrid.cols, rows: dotGrid.rows } : null}
+              onDownloadStl={handleDownloadStl}
+              onDownloadColorStls={handleDownloadColorStls}
+              onReset={() => { setOptions(DEFAULT_OPTIONS); setStlOptions(DEFAULT_STL); }}
               disabled={!dotCanvas}
             />
           </>
