@@ -4,6 +4,7 @@ import {
   ConvertOptions,
   DotGrid,
   buildDotGrid,
+  defaultThresholds,
   renderDotCanvas,
   gridToSvg,
 } from '@/lib/dotConverter';
@@ -16,7 +17,7 @@ import DotPreview from '@/components/DotPreview';
 
 const DEFAULT_OPTIONS: ConvertOptions = {
   pixelSize: 32,
-  threshold: 128,
+  thresholds: defaultThresholds(2),
   brightness: 0,
   contrast: 0,
   colorCount: 2,

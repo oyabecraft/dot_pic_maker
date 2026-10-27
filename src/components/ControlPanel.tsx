@@ -1,5 +1,5 @@
 'use client';
-import { ConvertOptions } from '@/lib/dotConverter';
+import { ConvertOptions, defaultThresholds } from '@/lib/dotConverter';
 import { StlOptions } from '@/lib/stlExport';
 
 const PRESETS: { name: string; colors: string[] }[] = [
@@ -88,6 +88,21 @@ export default function ControlPanel({
   };
 
   const COLOR_LABELS = ['明色', '中間1', '中間2', '暗色'];
+  const shortLabel = (i: number) =>
+    i === 0 ? '明' : i === options.colorCount - 1 ? '暗' : `中${i}`;
+
+  // 色数を変えたら、しきい値も均等割りに戻す。
+  const setColorCount = (n: number) =>
+    onChange({ ...options, colorCount: n, thresholds: defaultThresholds(n) });
+
+  // しきい値どうしが追い越さないよう、隣の値の間に収める。
+  const setThreshold = (k: number, v: number) => {
+    const t = [...options.thresholds];
+    const hi = k > 0 ? t[k - 1] - 1 : 255;
+    const lo = k < t.length - 1 ? t[k + 1] + 1 : 1;
+    t[k] = Math.min(hi, Math.max(lo, v));
+    onChange({ ...options, thresholds: t });
+  };
 
   const setStl = <K extends keyof StlOptions>(key: K, value: StlOptions[K]) =>
     onStlChange({ ...stlOptions, [key]: value });
@@ -119,14 +134,18 @@ export default function ControlPanel({
         </p>
       </section>
 
-      {/* 2値化設定 */}
+      {/* 色分け設定 */}
       <section>
-        <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">2値化設定</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">色分け設定</h3>
         <div className="space-y-2">
-          {options.colorCount === 2 && (
-            <Slider label="しきい値" value={options.threshold} min={0} max={255}
-              onChange={(v) => set('threshold', v)} />
-          )}
+          {options.thresholds.map((t, k) => (
+            <Slider
+              key={k}
+              label={options.colorCount === 2 ? 'しきい値' : `しきい値（${shortLabel(k)}｜${shortLabel(k + 1)}）`}
+              value={t} min={0} max={255}
+              onChange={(v) => setThreshold(k, v)}
+            />
+          ))}
           <Slider label="明るさ" value={options.brightness} min={-100} max={100}
             unit="" onChange={(v) => set('brightness', v)} />
           <Slider label="コントラスト" value={options.contrast} min={-100} max={100}
@@ -145,7 +164,7 @@ export default function ControlPanel({
             {[2, 3, 4].map((n) => (
               <button
                 key={n}
-                onClick={() => set('colorCount', n)}
+                onClick={() => setColorCount(n)}
                 className={`px-3 py-1 rounded text-sm transition-colors ${
                   options.colorCount === n
                     ? 'bg-blue-500 text-white'
@@ -173,7 +192,7 @@ export default function ControlPanel({
                   aria-label={COLOR_LABELS[i]}
                 />
                 <span className="text-xs text-gray-400">
-                  {i === 0 ? '明' : i === options.colorCount - 1 ? '暗' : `中${i}`}
+                  {shortLabel(i)}
                 </span>
               </div>
             ))}

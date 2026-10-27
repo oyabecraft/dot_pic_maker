@@ -1,6 +1,7 @@
 export interface ConvertOptions {
   pixelSize: number;
-  threshold: number;
+  /** 色の境目となる明るさ（0〜255、明るい側から降順）。色数 - 1 個。 */
+  thresholds: number[];
   brightness: number;
   contrast: number;
   colorCount: number;
@@ -45,10 +46,16 @@ function applyBrightnessContrast(gray: number, brightness: number, contrast: num
   return clamp(v, 0, 255);
 }
 
-function getColorIndex(gray: number, colorCount: number, threshold: number): number {
-  if (colorCount === 2) return gray >= threshold ? 0 : 1;
-  const step = 256 / colorCount;
-  return clamp(Math.floor((255 - gray) / step), 0, colorCount - 1);
+/** 明るさを色数で均等に区切ったしきい値（2色なら [128]、3色なら [171, 85]）。 */
+export function defaultThresholds(colorCount: number): number[] {
+  return Array.from({ length: colorCount - 1 }, (_, k) => Math.round(256 - ((k + 1) * 256) / colorCount));
+}
+
+/** gray より大きいしきい値の数 = 色インデックス（0 = 明色）。 */
+function getColorIndex(gray: number, thresholds: number[]): number {
+  let idx = 0;
+  for (const t of thresholds) if (gray < t) idx++;
+  return idx;
 }
 
 /**
@@ -63,7 +70,7 @@ export function buildDotGrid(
   sh: number,
   opts: ConvertOptions,
 ): DotGrid {
-  const { pixelSize, threshold, brightness, contrast, colorCount, colors } = opts;
+  const { pixelSize, thresholds, brightness, contrast, colorCount, colors } = opts;
 
   const aspect = sh / sw;
   const cols = Math.max(1, Math.round(pixelSize));
@@ -81,7 +88,7 @@ export function buildDotGrid(
   for (let p = 0, i = 0; i < data.length; i += 4, p++) {
     let gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
     gray = applyBrightnessContrast(gray, brightness, contrast);
-    indices[p] = getColorIndex(gray, colorCount, threshold);
+    indices[p] = getColorIndex(gray, thresholds);
   }
 
   return { cols, rows, aspect, indices, palette: colors.slice(0, colorCount) };
